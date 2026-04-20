@@ -26,3 +26,6 @@ public/stockfish.wasm
 *.njsproj
 *.sln
 *.sw?
+
+# Local Netlify folder
+.netlify
