@@ -28,9 +28,9 @@ export default function App() {
     if (move) applyMove(move)
   }, [getBestMove, elo, applyMove])
 
-  const handleDrop = useCallback((from, to) => {
+  const handleDrop = useCallback(({ sourceSquare, targetSquare }) => {
     if (mode === 'vsAI' && turn === 'b') return false
-    return makeMove(from, to)
+    return makeMove(sourceSquare, targetSquare)
   }, [mode, turn, makeMove])
 
   useEffect(() => {
@@ -57,10 +57,15 @@ export default function App() {
     setMode(m)
   }, [setMode, stop])
 
-  const boardWidth = Math.min(
-    560,
-    typeof window !== 'undefined' ? Math.max(280, window.innerWidth - 340) : 560
+  const [boardWidth, setBoardWidth] = useState(() =>
+    Math.min(560, typeof window !== 'undefined' ? Math.max(280, window.innerWidth - 340) : 560)
   )
+
+  useEffect(() => {
+    const onResize = () => setBoardWidth(Math.min(560, Math.max(280, window.innerWidth - 340)))
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--color-bg)' }}>

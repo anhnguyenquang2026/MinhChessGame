@@ -13,6 +13,8 @@ dist-ssr
 *.local
 
 .superpowers/
+public/stockfish.js
+public/stockfish.wasm
 
 # Editor directories and files
 .vscode/*

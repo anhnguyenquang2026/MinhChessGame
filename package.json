@@ -4,8 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "npm run copy-stockfish && vite",
+    "build": "npm run copy-stockfish && vite build",
+    "copy-stockfish": "node -e \"const fs=require('fs');['stockfish-18-lite-single.js','stockfish-18-lite-single.wasm'].forEach(f=>fs.copyFileSync('node_modules/stockfish/bin/'+f,'public/'+f.replace('stockfish-18-lite-single','stockfish')))\"",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -13,7 +14,8 @@
     "chess.js": "^1.4.0",
     "react": "^19.2.5",
     "react-chessboard": "^5.10.0",
-    "react-dom": "^19.2.5"
+    "react-dom": "^19.2.5",
+    "stockfish": "^18.0.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

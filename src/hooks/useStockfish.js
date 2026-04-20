@@ -11,10 +11,8 @@ export function useStockfish() {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    const worker = new Worker(
-      new URL('../stockfish.worker.js', import.meta.url)
-      // no { type: 'module' } — classic worker required for importScripts
-    )
+    // stockfish-18-lite.js + .wasm are copied to public/ — served from root, no CORS
+    const worker = new Worker('/stockfish.js')
     workerRef.current = worker
 
     worker.onmessage = ({ data }) => {

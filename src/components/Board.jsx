@@ -2,7 +2,7 @@ import { Chessboard } from 'react-chessboard'
 import { useMemo } from 'react'
 
 export default function Board({ fen, orientation, lastMove, inCheck, turn, onDrop, boardWidth }) {
-  const customSquareStyles = useMemo(() => {
+  const squareStyles = useMemo(() => {
     const styles = {}
     if (lastMove) {
       styles[lastMove.from] = { backgroundColor: 'rgba(255, 255, 0, 0.35)' }
@@ -27,15 +27,19 @@ export default function Board({ fen, orientation, lastMove, inCheck, turn, onDro
   }, [lastMove, inCheck, fen, turn])
 
   return (
-    <Chessboard
-      position={fen}
-      boardOrientation={orientation}
-      onPieceDrop={onDrop}
-      boardWidth={boardWidth}
-      customBoardStyle={{ borderRadius: '4px', boxShadow: '0 4px 24px rgba(0,0,0,0.5)' }}
-      customDarkSquareStyle={{ backgroundColor: '#769656' }}
-      customLightSquareStyle={{ backgroundColor: '#eeeed2' }}
-      customSquareStyles={customSquareStyles}
-    />
+    <div style={{ width: boardWidth, flexShrink: 0 }}>
+      <Chessboard
+        options={{
+          position: fen,
+          boardOrientation: orientation,
+          onPieceDrop: onDrop,
+          boardWidth: boardWidth,
+          boardStyle: { borderRadius: '4px', boxShadow: '0 4px 24px rgba(0,0,0,0.5)' },
+          darkSquareStyle: { backgroundColor: '#769656' },
+          lightSquareStyle: { backgroundColor: '#eeeed2' },
+          squareStyles: squareStyles,
+        }}
+      />
+    </div>
   )
 }
