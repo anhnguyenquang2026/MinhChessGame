@@ -1,7 +1,7 @@
 export default function GameEndModal({ result, status, onPlayAgain, onReview }) {
   if (!result) return null
 
-  const emoji = status === 'checkmate' ? '♟' : status === 'stalemate' ? '½' : '='
+  const emoji = status === 'checkmate' ? '♟' : status === 'stalemate' ? '½' : status === 'resign' ? '🏳' : '='
 
   return (
     <div

@@ -1,9 +1,11 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import Board from './components/Board'
 import SidePanel from './components/SidePanel'
 import GameEndModal from './components/GameEndModal'
+import PromotionModal from './components/PromotionModal'
 import { useChessGame } from './hooks/useChessGame'
 import { useStockfish } from './hooks/useStockfish'
+import { useMultiplayer } from './hooks/useMultiplayer'
 
 const DEFAULT_ELO = 1200
 
@@ -13,10 +15,67 @@ export default function App() {
 
   const {
     fen, history, status, result, orientation, mode, turn, inCheck,
-    makeMove, applyMove, undo, newGame, flipBoard, setMode,
+    makeMove, applyMove, undo, newGame, flipBoard, setMode, getMoves, resign,
   } = useChessGame()
 
   const { getBestMove, stop } = useStockfish()
+
+  // Click-to-move state
+  const [selectedSquare, setSelectedSquare] = useState(null)
+  const [validMoveSquares, setValidMoveSquares] = useState([])
+
+  // Promotion picker state: { from, to, color } when pending
+  const [promotionPending, setPromotionPending] = useState(null)
+
+  useEffect(() => {
+    setSelectedSquare(null)
+    setValidMoveSquares([])
+  }, [fen])
+
+  // Online multiplayer
+  const handleMultiplayerMove = useCallback((uci) => {
+    applyMove(uci)
+  }, [applyMove])
+
+  // Use a ref so the resign callback always has the latest `role` value
+  // even though it's defined before useMultiplayer returns `role`
+  const resignHandlerRef = useRef(null)
+
+  const { roomId, connected, role, error: multiError, createRoom, joinRoom, sendMove, sendResign, reset: resetMultiplayer } = useMultiplayer({
+    onMove: handleMultiplayerMove,
+    onResign: () => resignHandlerRef.current?.(),
+  })
+
+  // Now `role` is available — update the ref each render so it always has fresh `role`
+  resignHandlerRef.current = () => {
+    const myColor = role === 'host' ? 'White' : 'Black'
+    resign(myColor)
+  }
+
+  // Detect ?room= param on mount and auto-join
+  const roomParam = useMemo(() => new URLSearchParams(window.location.search).get('room'), [])
+  useEffect(() => {
+    if (roomParam) {
+      window.history.replaceState({}, '', window.location.pathname)
+      setMode('online')
+      joinRoom(roomParam)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset game when opponent first connects
+  const prevConnected = useRef(false)
+  useEffect(() => {
+    if (mode === 'online' && connected && !prevConnected.current) {
+      prevConnected.current = true
+      newGame()
+    }
+    if (!connected) prevConnected.current = false
+  }, [mode, connected, newGame])
+
+  // Override orientation in online mode (host=white, guest=black)
+  const effectiveOrientation = mode === 'online' && role
+    ? (role === 'host' ? 'white' : 'black')
+    : orientation
 
   const lastMove = history.length > 0 ? history[history.length - 1] : null
 
@@ -28,10 +87,72 @@ export default function App() {
     if (move) applyMove(move)
   }, [getBestMove, elo, applyMove])
 
-  const handleDrop = useCallback(({ sourceSquare, targetSquare }) => {
+  const canMove = useCallback(() => {
     if (mode === 'vsAI' && turn === 'b') return false
-    return makeMove(sourceSquare, targetSquare)
-  }, [mode, turn, makeMove])
+    if (mode === 'online') {
+      if (!connected) return false
+      if (role === 'host' && turn !== 'w') return false
+      if (role === 'guest' && turn !== 'b') return false
+    }
+    return true
+  }, [mode, turn, connected, role])
+
+  // Returns true if moving `from`->`to` is a pawn promotion
+  const isPromotion = useCallback((from, to) => {
+    const moves = getMoves(from)
+    return moves.some(m => m.to === to && m.flags.includes('p'))
+  }, [getMoves])
+
+  const handleDrop = useCallback(({ sourceSquare, targetSquare }) => {
+    if (!canMove()) return false
+    if (isPromotion(sourceSquare, targetSquare)) {
+      setPromotionPending({ from: sourceSquare, to: targetSquare, via: 'drop' })
+      return false  // don't apply yet; wait for picker
+    }
+    const moved = makeMove(sourceSquare, targetSquare)
+    if (moved && mode === 'online') sendMove(`${sourceSquare}${targetSquare}`)
+    return moved
+  }, [canMove, isPromotion, makeMove, mode, sendMove])
+
+  const handleSquareClick = useCallback((square) => {
+    if (status !== 'playing') return
+    if (!canMove()) return
+
+    if (selectedSquare === square) {
+      setSelectedSquare(null)
+      setValidMoveSquares([])
+      return
+    }
+
+    if (selectedSquare && validMoveSquares.includes(square)) {
+      if (isPromotion(selectedSquare, square)) {
+        setPromotionPending({ from: selectedSquare, to: square, via: 'click' })
+        setSelectedSquare(null)
+        setValidMoveSquares([])
+        return
+      }
+      const moved = makeMove(selectedSquare, square)
+      if (moved && mode === 'online') sendMove(`${selectedSquare}${square}`)
+      return
+    }
+
+    const moves = getMoves(square)
+    if (moves.length > 0) {
+      setSelectedSquare(square)
+      setValidMoveSquares(moves.map(m => m.to))
+    } else {
+      setSelectedSquare(null)
+      setValidMoveSquares([])
+    }
+  }, [status, canMove, selectedSquare, validMoveSquares, isPromotion, makeMove, getMoves, mode, sendMove])
+
+  const handlePromotionSelect = useCallback((piece) => {
+    if (!promotionPending) return
+    const { from, to } = promotionPending
+    setPromotionPending(null)
+    const moved = makeMove(from, to, piece)
+    if (moved && mode === 'online') sendMove(`${from}${to}${piece}`)
+  }, [promotionPending, makeMove, mode, sendMove])
 
   useEffect(() => {
     if (mode === 'vsAI' && turn === 'b' && status === 'playing') {
@@ -40,6 +161,7 @@ export default function App() {
   }, [fen]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleUndo = useCallback(() => {
+    if (mode === 'online') return
     if (aiThinking.current) stop()
     aiThinking.current = false
     undo(mode === 'vsAI' ? 2 : 1)
@@ -51,18 +173,47 @@ export default function App() {
     newGame()
   }, [newGame, stop])
 
+  const handleResign = useCallback(() => {
+    if (status !== 'playing') return
+    if (mode === 'online') {
+      // Tell the opponent we resigned
+      sendResign()
+      // Local player (me) loses
+      const myColor = role === 'host' ? 'White' : 'Black'
+      const winner = myColor === 'White' ? 'Black' : 'White'
+      resign(winner)
+    } else {
+      // In 2p / vsAI, the current turn's player resigns
+      const loserColor = turn === 'w' ? 'White' : 'Black'
+      const winner = loserColor === 'White' ? 'Black' : 'White'
+      resign(winner)
+    }
+  }, [status, mode, role, turn, sendResign, resign])
+
   const handleSetMode = useCallback((m) => {
     if (aiThinking.current) stop()
     aiThinking.current = false
+    if (m !== 'online') resetMultiplayer()
     setMode(m)
-  }, [setMode, stop])
+    if (m === 'online' && !roomParam) createRoom()
+  }, [setMode, stop, createRoom, resetMultiplayer, roomParam])
 
-  const [boardWidth, setBoardWidth] = useState(() =>
-    Math.min(560, typeof window !== 'undefined' ? Math.max(280, window.innerWidth - 340) : 560)
-  )
+  const roomUrl = roomId
+    ? `${window.location.origin}${window.location.pathname}?room=${roomId}`
+    : null
+
+  const calcBoardWidth = () => {
+    if (typeof window === 'undefined') return 480
+    const w = window.innerWidth
+    return w < 768
+      ? Math.min(480, w - 24)          // mobile: full-width minus 12px padding each side
+      : Math.min(560, Math.max(280, w - 340)) // desktop: leave room for side panel
+  }
+
+  const [boardWidth, setBoardWidth] = useState(calcBoardWidth)
 
   useEffect(() => {
-    const onResize = () => setBoardWidth(Math.min(560, Math.max(280, window.innerWidth - 340)))
+    const onResize = () => setBoardWidth(calcBoardWidth())
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
@@ -70,32 +221,41 @@ export default function App() {
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--color-bg)' }}>
       <header className="py-4 px-6 border-b" style={{ borderColor: '#2d3748' }}>
-        <h1 className="text-lg font-semibold tracking-wide" style={{ color: 'var(--color-accent)' }}>♟ Chess</h1>
+        <h1 className="text-lg font-semibold tracking-wide" style={{ color: 'var(--color-accent)' }}>♟ Hoàng Minh lớp 5.3, play Chess with me</h1>
       </header>
 
-      <main className="flex-1 flex flex-col md:flex-row items-start justify-center gap-6 p-6">
+      <main className="flex-1 flex flex-col md:flex-row items-center md:items-start justify-center gap-3 md:gap-6 p-3 md:p-6">
         <div className="flex-shrink-0">
           <Board
             fen={fen}
-            orientation={orientation}
+            orientation={effectiveOrientation}
             lastMove={lastMove}
             inCheck={inCheck}
             turn={turn}
             onDrop={handleDrop}
+            onSquareClick={handleSquareClick}
+            selectedSquare={selectedSquare}
+            validMoveSquares={validMoveSquares}
             boardWidth={boardWidth}
           />
         </div>
 
-        <aside className="w-full md:w-auto">
+        <aside className="w-full md:w-auto md:min-w-[240px] md:max-w-[280px]">
           <SidePanel
             mode={mode}
             elo={elo}
             history={history}
+            status={status}
+            roomUrl={roomUrl}
+            onlineConnected={connected}
+            onlineRole={role}
+            onlineError={multiError}
             onSetMode={handleSetMode}
             onSetElo={setElo}
             onNewGame={handleNewGame}
             onUndo={handleUndo}
             onFlip={flipBoard}
+            onResign={handleResign}
           />
         </aside>
       </main>
@@ -105,6 +265,11 @@ export default function App() {
         status={status}
         onPlayAgain={handleNewGame}
         onReview={() => {}}
+      />
+
+      <PromotionModal
+        color={promotionPending ? turn : null}
+        onSelect={handlePromotionSelect}
       />
     </div>
   )

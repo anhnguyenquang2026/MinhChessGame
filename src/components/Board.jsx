@@ -1,7 +1,7 @@
 import { Chessboard } from 'react-chessboard'
 import { useMemo } from 'react'
 
-export default function Board({ fen, orientation, lastMove, inCheck, turn, onDrop, boardWidth }) {
+export default function Board({ fen, orientation, lastMove, inCheck, turn, onDrop, onSquareClick, selectedSquare, validMoveSquares, boardWidth }) {
   const squareStyles = useMemo(() => {
     const styles = {}
     if (lastMove) {
@@ -23,8 +23,14 @@ export default function Board({ fen, orientation, lastMove, inCheck, turn, onDro
         }
       })
     }
+    if (selectedSquare) {
+      styles[selectedSquare] = { backgroundColor: 'rgba(20, 85, 30, 0.5)' }
+    }
+    validMoveSquares?.forEach(sq => {
+      styles[sq] = { background: 'radial-gradient(circle, rgba(0,0,0,.25) 36%, transparent 36%)' }
+    })
     return styles
-  }, [lastMove, inCheck, fen, turn])
+  }, [lastMove, inCheck, fen, turn, selectedSquare, validMoveSquares])
 
   return (
     <div style={{ width: boardWidth, flexShrink: 0 }}>
@@ -33,6 +39,7 @@ export default function Board({ fen, orientation, lastMove, inCheck, turn, onDro
           position: fen,
           boardOrientation: orientation,
           onPieceDrop: onDrop,
+          onSquareClick: ({ square }) => onSquareClick?.(square),
           boardWidth: boardWidth,
           boardStyle: { borderRadius: '4px', boxShadow: '0 4px 24px rgba(0,0,0,0.5)' },
           darkSquareStyle: { backgroundColor: '#769656' },

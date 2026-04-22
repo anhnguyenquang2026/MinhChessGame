@@ -65,6 +65,16 @@ export function useChessGame() {
     setResult(null)
   }, [chess])
 
+  const resign = useCallback((winner) => {
+    setStatus('resign')
+    setResult(`${winner} wins — opponent resigned`)
+  }, [])
+
+  const getMoves = useCallback((square) => {
+    if (status !== 'playing') return []
+    return chess.moves({ square, verbose: true })
+  }, [chess, status])
+
   const flipBoard = useCallback(() => {
     setOrientation(o => o === 'white' ? 'black' : 'white')
   }, [])
@@ -88,11 +98,13 @@ export function useChessGame() {
     turn: chess.turn(),
     inCheck: chess.inCheck(),
     chess,
+    getMoves,
     makeMove,
     applyMove,
     undo,
     newGame,
     flipBoard,
     setMode,
+    resign,
   }
 }

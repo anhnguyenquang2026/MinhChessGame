@@ -6,7 +6,7 @@ const PRESETS = [
   { label: 'Hard', elo: 2000 },
 ]
 
-export default function SidePanel({ mode, elo, history, onSetMode, onSetElo, onNewGame, onUndo, onFlip }) {
+export default function SidePanel({ mode, elo, history, status, roomUrl, onlineConnected, onlineRole, onlineError, onSetMode, onSetElo, onNewGame, onUndo, onFlip, onResign }) {
   const moveListRef = useRef(null)
 
   useEffect(() => {
@@ -21,12 +21,12 @@ export default function SidePanel({ mode, elo, history, onSetMode, onSetElo, onN
   }
 
   return (
-    <div className="flex flex-col gap-4 w-full" style={{ minWidth: 240, maxWidth: 280 }}>
+    <div className="flex flex-col gap-3 md:gap-4 w-full">
       {/* Mode toggle */}
       <div className="rounded-lg p-3" style={{ background: 'var(--color-panel)' }}>
         <div className="text-xs uppercase tracking-widest mb-2" style={{ color: 'var(--color-accent)' }}>Mode</div>
         <div className="flex gap-2">
-          {['vsAI', '2p'].map(m => (
+          {[['vsAI', 'vs AI'], ['2p', '2 Player'], ['online', 'Online']].map(([m, label]) => (
             <button
               key={m}
               onClick={() => onSetMode(m)}
@@ -36,11 +36,49 @@ export default function SidePanel({ mode, elo, history, onSetMode, onSetElo, onN
                 color: mode === m ? '#fff' : '#a0aec0',
               }}
             >
-              {m === 'vsAI' ? 'vs AI' : '2 Player'}
+              {label}
             </button>
           ))}
         </div>
       </div>
+
+      {/* Online status panel */}
+      {mode === 'online' && (
+        <div className="rounded-lg p-3" style={{ background: 'var(--color-panel)' }}>
+          <div className="text-xs uppercase tracking-widest mb-2" style={{ color: 'var(--color-accent)' }}>Online Play</div>
+          {onlineError && (
+            <div className="text-xs" style={{ color: '#fc8181' }}>Connection error. Try again.</div>
+          )}
+          {!onlineError && !onlineConnected && !roomUrl && (
+            <div className="text-xs" style={{ color: '#a0aec0' }}>Setting up connection...</div>
+          )}
+          {!onlineError && !onlineConnected && roomUrl && onlineRole === 'host' && (
+            <>
+              <div className="text-xs mb-2" style={{ color: '#a0aec0' }}>Share with your opponent:</div>
+              <div
+                className="text-xs p-2 rounded break-all cursor-pointer select-all"
+                style={{ background: '#2d3748', color: '#68d391' }}
+                onClick={() => navigator.clipboard?.writeText(roomUrl)}
+                title="Click to copy"
+              >
+                {roomUrl}
+              </div>
+              <div className="text-xs mt-1 text-center" style={{ color: '#4a5568' }}>Waiting... (click to copy link)</div>
+            </>
+          )}
+          {!onlineError && !onlineConnected && onlineRole === 'guest' && (
+            <div className="text-xs" style={{ color: '#a0aec0' }}>Joining game...</div>
+          )}
+          {onlineConnected && (
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full" style={{ background: '#68d391' }} />
+              <div className="text-xs" style={{ color: '#68d391' }}>
+                Connected — you play {onlineRole === 'host' ? 'White' : 'Black'}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Difficulty — only in vsAI mode */}
       {mode === 'vsAI' && (
@@ -77,7 +115,7 @@ export default function SidePanel({ mode, elo, history, onSetMode, onSetElo, onN
       {/* Move list */}
       <div className="rounded-lg p-3 flex-1 flex flex-col" style={{ background: 'var(--color-panel)', minHeight: 160 }}>
         <div className="text-xs uppercase tracking-widest mb-2" style={{ color: 'var(--color-accent)' }}>Moves</div>
-        <div ref={moveListRef} className="overflow-y-auto flex-1 text-sm" style={{ maxHeight: 240 }}>
+        <div ref={moveListRef} className="overflow-y-auto flex-1 text-sm" style={{ maxHeight: 160 }}>
           {pairs.length === 0 && <div style={{ color: '#4a5568' }}>No moves yet</div>}
           {pairs.map(({ n, w, b }) => (
             <div key={n} className="flex gap-2 py-0.5">
@@ -99,11 +137,29 @@ export default function SidePanel({ mode, elo, history, onSetMode, onSetElo, onN
           >
             ⊕ New Game
           </button>
+          {status === 'playing' && (
+            <button
+              onClick={onResign}
+              className="w-full py-2 rounded text-sm font-semibold transition-colors"
+              style={{
+                background: 'rgba(229,62,62,0.15)',
+                color: '#fc8181',
+                border: '1px solid rgba(229,62,62,0.35)',
+              }}
+            >
+              🏳 Resign
+            </button>
+          )}
           <div className="flex gap-2">
             <button
               onClick={onUndo}
+              disabled={mode === 'online'}
               className="flex-1 py-1.5 rounded text-sm transition-colors"
-              style={{ background: '#2d3748', color: '#a0aec0' }}
+              style={{
+                background: '#2d3748',
+                color: mode === 'online' ? '#4a5568' : '#a0aec0',
+                cursor: mode === 'online' ? 'not-allowed' : 'pointer',
+              }}
             >
               ↩ Undo
             </button>
@@ -120,3 +176,4 @@ export default function SidePanel({ mode, elo, history, onSetMode, onSetElo, onN
     </div>
   )
 }
+
