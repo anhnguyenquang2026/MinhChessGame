@@ -6,19 +6,50 @@ import PromotionModal from './components/PromotionModal'
 import { useChessGame } from './hooks/useChessGame'
 import { useStockfish } from './hooks/useStockfish'
 import { useMultiplayer } from './hooks/useMultiplayer'
+import { useChessClock } from './hooks/useChessClock'
 
 const DEFAULT_ELO = 1200
 
 export default function App() {
   const [elo, setElo] = useState(DEFAULT_ELO)
   const aiThinking = useRef(false)
+  const prevTurnRef = useRef(null)
 
   const {
     fen, history, status, result, orientation, mode, turn, inCheck,
-    makeMove, applyMove, undo, newGame, flipBoard, setMode, getMoves, resign,
+    makeMove, applyMove, undo, newGame, flipBoard, setMode, getMoves, resign, flagged,
   } = useChessGame()
 
-  const { getBestMove, stop } = useStockfish()
+  const { getBestMove, stop, evaluate } = useStockfish()
+
+  const [timeControl, setTimeControl] = useState({ minutes: null, increment: 0 })
+
+  const handleSetTimeControl = useCallback((tc) => {
+    setTimeControl(tc)
+  }, [])
+
+  const initialSeconds = timeControl.minutes !== null ? timeControl.minutes * 60 : null
+
+  const onTimeoutCallback = useCallback((color) => {
+    const winner = color === 'w' ? 'Black' : 'White'
+    flagged(winner)
+  }, [flagged])
+
+  const { whiteTime, blackTime, reset: resetClock, addIncrement } = useChessClock({
+    initialSeconds,
+    increment: timeControl.increment,
+    activeTurn: turn,
+    running: status === 'playing',
+    onTimeout: onTimeoutCallback,
+  })
+
+  // Add increment to the player who just moved
+  useEffect(() => {
+    if (prevTurnRef.current && prevTurnRef.current !== turn && status === 'playing') {
+      addIncrement(prevTurnRef.current)
+    }
+    prevTurnRef.current = turn
+  }, [turn]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Click-to-move state
   const [selectedSquare, setSelectedSquare] = useState(null)
@@ -171,7 +202,8 @@ export default function App() {
     if (aiThinking.current) stop()
     aiThinking.current = false
     newGame()
-  }, [newGame, stop])
+    resetClock()
+  }, [newGame, stop, resetClock])
 
   const handleResign = useCallback(() => {
     if (status !== 'playing') return
@@ -256,6 +288,11 @@ export default function App() {
             onUndo={handleUndo}
             onFlip={flipBoard}
             onResign={handleResign}
+            timeControl={timeControl}
+            onSetTimeControl={handleSetTimeControl}
+            whiteTime={whiteTime}
+            blackTime={blackTime}
+            orientation={effectiveOrientation}
           />
         </aside>
       </main>
