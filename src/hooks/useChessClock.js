@@ -87,7 +87,7 @@ export function useChessClock({ initialSeconds, increment = 0, activeTurn, runni
 
   const addIncrement = useCallback((color) => {
     if (!increment || initialSeconds === null) return
-    const MAX_CLOCK_SECONDS = 600  // Maximum allowed clock time (10 min base + increments)
+    const MAX_CLOCK_SECONDS = 3600  // Safety cap: 1 hour maximum accumulated clock time
     if (color === 'w') {
       whiteRef.current = Math.min(MAX_CLOCK_SECONDS, whiteRef.current + increment)
       setWhiteTime(whiteRef.current)

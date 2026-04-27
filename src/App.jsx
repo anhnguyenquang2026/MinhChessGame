@@ -303,8 +303,9 @@ export default function App() {
     aiThinking.current = false
     if (m !== 'online') resetMultiplayer()
     setMode(m)
+    resetClock()
     if (m === 'online' && !roomParam) createRoom()
-  }, [setMode, stop, createRoom, resetMultiplayer, roomParam])
+  }, [setMode, stop, createRoom, resetMultiplayer, roomParam, resetClock])
 
   const roomUrl = roomId
     ? `${window.location.origin}${window.location.pathname}?room=${roomId}`

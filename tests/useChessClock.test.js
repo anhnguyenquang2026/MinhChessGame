@@ -32,13 +32,13 @@ describe('useChessClock', () => {
     expect(result.current.blackTime).toBe(183)
   })
 
-  test('addIncrement clamps to 600s', () => {
+  test('addIncrement clamps to 3600s', () => {
     const onTimeout = vi.fn()
     const { result } = renderHook(() =>
-      useChessClock({ initialSeconds: 599, increment: 5, activeTurn: 'w', running: false, onTimeout })
+      useChessClock({ initialSeconds: 3598, increment: 5, activeTurn: 'w', running: false, onTimeout })
     )
     act(() => { result.current.addIncrement('w') })
-    expect(result.current.whiteTime).toBe(600)
+    expect(result.current.whiteTime).toBe(3600)
   })
 
   test('addIncrement does nothing when increment is 0', () => {
