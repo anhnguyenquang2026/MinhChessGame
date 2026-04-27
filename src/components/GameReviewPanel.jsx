@@ -164,7 +164,9 @@ export default function GameReviewPanel({ positions, results, reviewIndex, analy
           </div>
         ) : reviewIndex === 0 ? (
           <div className="text-xs p-2" style={{ color: '#4a5568' }}>Starting position</div>
-        ) : null}
+        ) : (
+          <div className="text-xs p-2" style={{ color: '#4a5568' }}>Analyzing…</div>
+        )}
       </div>
     </div>
   )
