@@ -60,4 +60,26 @@ describe('useChessGame', () => {
     expect(result.current.mode).toBe('2p')
     expect(result.current.history).toHaveLength(0)
   })
+
+  test('flagged sets status to timeout with correct result', () => {
+    const { result } = renderHook(() => useChessGame())
+    act(() => { result.current.flagged('White') })
+    expect(result.current.status).toBe('timeout')
+    expect(result.current.result).toBe('White wins on time')
+  })
+
+  test('flagged with Black winner', () => {
+    const { result } = renderHook(() => useChessGame())
+    act(() => { result.current.flagged('Black') })
+    expect(result.current.status).toBe('timeout')
+    expect(result.current.result).toBe('Black wins on time')
+  })
+
+  test('newGame clears timeout status', () => {
+    const { result } = renderHook(() => useChessGame())
+    act(() => { result.current.flagged('White') })
+    act(() => { result.current.newGame() })
+    expect(result.current.status).toBe('playing')
+    expect(result.current.result).toBeNull()
+  })
 })

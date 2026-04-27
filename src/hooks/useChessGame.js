@@ -70,6 +70,11 @@ export function useChessGame() {
     setResult(`${winner} wins — opponent resigned`)
   }, [])
 
+  const flagged = useCallback((winner) => {
+    setStatus('timeout')
+    setResult(`${winner} wins on time`)
+  }, [])
+
   const getMoves = useCallback((square) => {
     if (status !== 'playing') return []
     return chess.moves({ square, verbose: true })
@@ -106,5 +111,6 @@ export function useChessGame() {
     flipBoard,
     setMode,
     resign,
+    flagged,
   }
 }
