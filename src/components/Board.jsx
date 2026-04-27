@@ -1,7 +1,15 @@
 import { Chessboard } from 'react-chessboard'
 import { useMemo } from 'react'
 
-export default function Board({ fen, orientation, lastMove, inCheck, turn, onDrop, onSquareClick, selectedSquare, validMoveSquares, boardWidth }) {
+export default function Board({
+  fen, orientation, lastMove, inCheck, turn,
+  onDrop, onSquareClick,
+  selectedSquare, validMoveSquares,
+  boardWidth,
+  arrows,
+  extraSquareStyles,
+  readOnly,
+}) {
   const squareStyles = useMemo(() => {
     const styles = {}
     if (lastMove) {
@@ -29,8 +37,11 @@ export default function Board({ fen, orientation, lastMove, inCheck, turn, onDro
     validMoveSquares?.forEach(sq => {
       styles[sq] = { background: 'radial-gradient(circle, rgba(0,0,0,.25) 36%, transparent 36%)' }
     })
+    if (extraSquareStyles) {
+      Object.assign(styles, extraSquareStyles)
+    }
     return styles
-  }, [lastMove, inCheck, fen, turn, selectedSquare, validMoveSquares])
+  }, [lastMove, inCheck, fen, turn, selectedSquare, validMoveSquares, extraSquareStyles])
 
   return (
     <div style={{ width: boardWidth, flexShrink: 0 }}>
@@ -38,13 +49,14 @@ export default function Board({ fen, orientation, lastMove, inCheck, turn, onDro
         options={{
           position: fen,
           boardOrientation: orientation,
-          onPieceDrop: onDrop,
-          onSquareClick: ({ square }) => onSquareClick?.(square),
+          onPieceDrop: readOnly ? () => false : onDrop,
+          onSquareClick: readOnly ? undefined : ({ square }) => onSquareClick?.(square),
           boardWidth: boardWidth,
           boardStyle: { borderRadius: '4px', boxShadow: '0 4px 24px rgba(0,0,0,0.5)' },
           darkSquareStyle: { backgroundColor: '#769656' },
           lightSquareStyle: { backgroundColor: '#eeeed2' },
           squareStyles: squareStyles,
+          arrows: arrows ?? [],
         }}
       />
     </div>
