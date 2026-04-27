@@ -7,6 +7,7 @@ import { useChessGame } from './hooks/useChessGame'
 import { useStockfish } from './hooks/useStockfish'
 import { useMultiplayer } from './hooks/useMultiplayer'
 import { useChessClock } from './hooks/useChessClock'
+import GameReviewPanel from './components/GameReviewPanel'
 
 const DEFAULT_ELO = 1200
 
@@ -50,6 +51,13 @@ export default function App() {
     }
     prevTurnRef.current = turn
   }, [turn]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Review mode
+  const [reviewMode, setReviewMode] = useState(false)
+  const [reviewPositions, setReviewPositions] = useState([])
+  const [reviewIndex, setReviewIndex] = useState(0)
+  const [analysisResults, setAnalysisResults] = useState([])
+  const [analysisProgress, setAnalysisProgress] = useState(0)
 
   // Click-to-move state
   const [selectedSquare, setSelectedSquare] = useState(null)
@@ -191,6 +199,46 @@ export default function App() {
     }
   }, [fen]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Run sequential Stockfish analysis when review mode starts
+  useEffect(() => {
+    if (!reviewMode || reviewPositions.length === 0) return
+
+    let cancelled = false
+    const scores = []
+
+    async function runAnalysis() {
+      for (let i = 0; i < reviewPositions.length; i++) {
+        if (cancelled) return
+        const { score, bestMove } = await evaluate(reviewPositions[i].fen)
+        // Normalize: Stockfish score is from side-to-move perspective → White's perspective
+        const isBlackTurn = reviewPositions[i].fen.split(' ')[1] === 'b'
+        const normalizedScore = isBlackTurn ? -score : score
+        scores.push({ score: normalizedScore, bestMove })
+        setAnalysisProgress(i + 1)
+      }
+      if (cancelled) return
+
+      // Classify each move by comparing adjacent scores
+      const results = history.map((move, i) => {
+        const scoreBefore = scores[i].score
+        const scoreAfter = scores[i + 1].score
+        const cpLoss = move.color === 'w'
+          ? scoreBefore - scoreAfter
+          : scoreAfter - scoreBefore
+        return {
+          san: move.san,
+          bestMove: scores[i].bestMove,
+          cpLoss: Math.round(Math.max(0, cpLoss)),
+          classification: classify(cpLoss),
+        }
+      })
+      setAnalysisResults(results)
+    }
+
+    runAnalysis()
+    return () => { cancelled = true }
+  }, [reviewMode, reviewPositions]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleUndo = useCallback(() => {
     if (mode === 'online') return
     if (aiThinking.current) stop()
@@ -222,6 +270,33 @@ export default function App() {
     }
   }, [status, mode, role, turn, sendResign, resign])
 
+  function classify(cpLoss) {
+    if (cpLoss < 0) return 'Best'
+    if (cpLoss < 50) return 'Good'
+    if (cpLoss < 150) return 'Inaccuracy'
+    if (cpLoss < 300) return 'Mistake'
+    return 'Blunder'
+  }
+
+  const handleReview = useCallback(() => {
+    if (history.length === 0) return
+    const positions = [
+      { fen: history[0].before },
+      ...history.map(m => ({ fen: m.after })),
+    ]
+    setReviewPositions(positions)
+    setReviewIndex(0)
+    setAnalysisResults([])
+    setAnalysisProgress(0)
+    setReviewMode(true)
+  }, [history])
+
+  const handleExitReview = useCallback(() => {
+    setReviewMode(false)
+    setReviewPositions([])
+    setAnalysisResults([])
+  }, [])
+
   const handleSetMode = useCallback((m) => {
     if (aiThinking.current) stop()
     aiThinking.current = false
@@ -250,6 +325,27 @@ export default function App() {
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
+  // Board props for review mode
+  const reviewFen = reviewMode ? (reviewPositions[reviewIndex]?.fen ?? fen) : fen
+
+  const reviewArrows = (reviewMode && analysisResults[reviewIndex]?.bestMove)
+    ? [[
+        analysisResults[reviewIndex].bestMove.slice(0, 2),
+        analysisResults[reviewIndex].bestMove.slice(2, 4),
+        'rgba(104,211,145,0.8)',
+      ]]
+    : []
+
+  const reviewSquareStyles = {}
+  if (reviewMode && reviewIndex > 0) {
+    const prevResult = analysisResults[reviewIndex - 1]
+    const prevMove = history[reviewIndex - 1]
+    if (prevResult && prevMove && (prevResult.classification === 'Blunder' || prevResult.classification === 'Mistake')) {
+      reviewSquareStyles[prevMove.from] = { backgroundColor: 'rgba(252,129,129,0.45)' }
+      reviewSquareStyles[prevMove.to] = { backgroundColor: 'rgba(252,129,129,0.45)' }
+    }
+  }
+
   return (
     <div className="min-h-screen flex flex-col" style={{ background: 'var(--color-bg)' }}>
       <header className="py-4 px-6 border-b" style={{ borderColor: '#2d3748' }}>
@@ -259,51 +355,68 @@ export default function App() {
       <main className="flex-1 flex flex-col md:flex-row items-center md:items-start justify-center gap-3 md:gap-6 p-3 md:p-6">
         <div className="flex-shrink-0">
           <Board
-            fen={fen}
+            fen={reviewFen}
             orientation={effectiveOrientation}
-            lastMove={lastMove}
-            inCheck={inCheck}
+            lastMove={reviewMode ? null : lastMove}
+            inCheck={reviewMode ? false : inCheck}
             turn={turn}
             onDrop={handleDrop}
             onSquareClick={handleSquareClick}
-            selectedSquare={selectedSquare}
-            validMoveSquares={validMoveSquares}
+            selectedSquare={reviewMode ? null : selectedSquare}
+            validMoveSquares={reviewMode ? [] : validMoveSquares}
             boardWidth={boardWidth}
+            arrows={reviewArrows}
+            extraSquareStyles={reviewSquareStyles}
+            readOnly={reviewMode}
           />
         </div>
 
         <aside className="w-full md:w-auto md:min-w-[240px] md:max-w-[280px]">
-          <SidePanel
-            mode={mode}
-            elo={elo}
-            history={history}
-            status={status}
-            roomUrl={roomUrl}
-            onlineConnected={connected}
-            onlineRole={role}
-            onlineError={multiError}
-            onSetMode={handleSetMode}
-            onSetElo={setElo}
-            onNewGame={handleNewGame}
-            onUndo={handleUndo}
-            onFlip={flipBoard}
-            onResign={handleResign}
-            timeControl={timeControl}
-            onSetTimeControl={handleSetTimeControl}
-            whiteTime={whiteTime}
-            blackTime={blackTime}
-            orientation={effectiveOrientation}
-            turn={turn}
-          />
+          {reviewMode ? (
+            <GameReviewPanel
+              positions={reviewPositions}
+              results={analysisResults}
+              reviewIndex={reviewIndex}
+              analysisProgress={analysisProgress}
+              onPrev={() => setReviewIndex(i => Math.max(0, i - 1))}
+              onNext={() => setReviewIndex(i => Math.min(reviewPositions.length - 1, i + 1))}
+              onExit={handleExitReview}
+            />
+          ) : (
+            <SidePanel
+              mode={mode}
+              elo={elo}
+              history={history}
+              status={status}
+              roomUrl={roomUrl}
+              onlineConnected={connected}
+              onlineRole={role}
+              onlineError={multiError}
+              onSetMode={handleSetMode}
+              onSetElo={setElo}
+              onNewGame={handleNewGame}
+              onUndo={handleUndo}
+              onFlip={flipBoard}
+              onResign={handleResign}
+              timeControl={timeControl}
+              onSetTimeControl={handleSetTimeControl}
+              whiteTime={whiteTime}
+              blackTime={blackTime}
+              orientation={effectiveOrientation}
+              turn={turn}
+            />
+          )}
         </aside>
       </main>
 
-      <GameEndModal
-        result={result}
-        status={status}
-        onPlayAgain={handleNewGame}
-        onReview={() => {}}
-      />
+      {!reviewMode && (
+        <GameEndModal
+          result={result}
+          status={status}
+          onPlayAgain={handleNewGame}
+          onReview={handleReview}
+        />
+      )}
 
       <PromotionModal
         color={promotionPending ? turn : null}
