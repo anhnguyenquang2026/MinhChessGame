@@ -18,7 +18,7 @@ export default function SidePanel({
   mode, elo, history, status, roomUrl, onlineConnected, onlineRole, onlineError,
   onSetMode, onSetElo, onNewGame, onUndo, onFlip, onResign,
   timeControl, onSetTimeControl,
-  whiteTime, blackTime, orientation,
+  whiteTime, blackTime, orientation, turn,
 }) {
   const moveListRef = useRef(null)
 
@@ -164,7 +164,7 @@ export default function SidePanel({
             <ChessClock
               whiteTime={whiteTime}
               blackTime={blackTime}
-              activeTurn={status === 'playing' ? (history.length % 2 === 0 ? 'w' : 'b') : null}
+              activeTurn={status === 'playing' ? turn : null}
               running={status === 'playing'}
               orientation={orientation}
             />

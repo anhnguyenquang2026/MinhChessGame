@@ -293,6 +293,7 @@ export default function App() {
             whiteTime={whiteTime}
             blackTime={blackTime}
             orientation={effectiveOrientation}
+            turn={turn}
           />
         </aside>
       </main>
