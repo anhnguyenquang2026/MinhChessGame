@@ -11,6 +11,14 @@ import GameReviewPanel from './components/GameReviewPanel'
 
 const DEFAULT_ELO = 1200
 
+function classify(cpLoss) {
+  if (cpLoss < 0) return 'Best'
+  if (cpLoss < 50) return 'Good'
+  if (cpLoss < 150) return 'Inaccuracy'
+  if (cpLoss < 300) return 'Mistake'
+  return 'Blunder'
+}
+
 export default function App() {
   const [elo, setElo] = useState(DEFAULT_ELO)
   const aiThinking = useRef(false)
@@ -270,14 +278,6 @@ export default function App() {
     }
   }, [status, mode, role, turn, sendResign, resign])
 
-  function classify(cpLoss) {
-    if (cpLoss < 0) return 'Best'
-    if (cpLoss < 50) return 'Good'
-    if (cpLoss < 150) return 'Inaccuracy'
-    if (cpLoss < 300) return 'Mistake'
-    return 'Blunder'
-  }
-
   const handleReview = useCallback(() => {
     if (history.length === 0) return
     const positions = [
@@ -295,6 +295,7 @@ export default function App() {
     setReviewMode(false)
     setReviewPositions([])
     setAnalysisResults([])
+    setReviewIndex(0)
   }, [])
 
   const handleSetMode = useCallback((m) => {
