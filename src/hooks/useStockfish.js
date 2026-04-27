@@ -98,6 +98,14 @@ export function useStockfish() {
         resolverRef.current = null
       }
 
+      // Cancel any pending evaluate
+      if (evalResolverRef.current) {
+        worker.postMessage('stop')
+        evalResolverRef.current({ score: 0, bestMove: null })
+        evalResolverRef.current = null
+        pendingScoreRef.current = null
+      }
+
       evalResolverRef.current = resolve
       pendingScoreRef.current = null
 
