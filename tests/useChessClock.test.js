@@ -73,11 +73,21 @@ describe('useChessClock', () => {
   test('reset restores initial times', () => {
     const onTimeout = vi.fn()
     const { result } = renderHook(() =>
-      useChessClock({ initialSeconds: 60, increment: 0, activeTurn: 'w', running: false, onTimeout })
+      useChessClock({ initialSeconds: 60, increment: 5, activeTurn: 'w', running: false, onTimeout })
     )
     act(() => { result.current.addIncrement('w') })
+    expect(result.current.whiteTime).toBe(65)
     act(() => { result.current.reset() })
     expect(result.current.whiteTime).toBe(60)
     expect(result.current.blackTime).toBe(60)
+  })
+
+  test('addIncrement does nothing in unlimited clock mode (initialSeconds=null)', () => {
+    const onTimeout = vi.fn()
+    const { result } = renderHook(() =>
+      useChessClock({ initialSeconds: null, increment: 5, activeTurn: 'w', running: false, onTimeout })
+    )
+    act(() => { result.current.addIncrement('w') })
+    expect(result.current.whiteTime).toBeNull()
   })
 })

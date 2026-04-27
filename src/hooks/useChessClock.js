@@ -86,15 +86,16 @@ export function useChessClock({ initialSeconds, increment = 0, activeTurn, runni
   }, [initialSeconds])
 
   const addIncrement = useCallback((color) => {
-    if (!increment) return
+    if (!increment || initialSeconds === null) return
+    const MAX_CLOCK_SECONDS = 600  // Maximum allowed clock time (10 min base + increments)
     if (color === 'w') {
-      whiteRef.current = Math.min(600, whiteRef.current + increment)
+      whiteRef.current = Math.min(MAX_CLOCK_SECONDS, whiteRef.current + increment)
       setWhiteTime(whiteRef.current)
     } else {
-      blackRef.current = Math.min(600, blackRef.current + increment)
+      blackRef.current = Math.min(MAX_CLOCK_SECONDS, blackRef.current + increment)
       setBlackTime(blackRef.current)
     }
-  }, [increment])
+  }, [increment, initialSeconds])
 
   return { whiteTime, blackTime, reset, addIncrement }
 }
