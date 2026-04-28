@@ -1,0 +1,39 @@
+{
+  "name": "gsdprojects",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run copy-stockfish && vite",
+    "build": "npm run copy-stockfish && vite build",
+    "copy-stockfish": "node -e \"const fs=require('fs');['stockfish-18-lite-single.js','stockfish-18-lite-single.wasm'].forEach(f=>fs.copyFileSync('node_modules/stockfish/bin/'+f,'public/'+f.replace('stockfish-18-lite-single','stockfish')))\"",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "chess.js": "^1.4.0",
+    "peerjs": "^1.5.5",
+    "react": "^19.2.5",
+    "react-chessboard": "^5.10.0",
+    "react-dom": "^19.2.5",
+    "stockfish": "^18.0.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@tailwindcss/vite": "^4.2.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/ui": "^4.1.4",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.5.0",
+    "jsdom": "^29.0.2",
+    "tailwindcss": "^4.2.2",
+    "vite": "^8.0.9",
+    "vitest": "^4.1.4"
+  }
+}
